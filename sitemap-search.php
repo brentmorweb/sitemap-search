@@ -1115,12 +1115,8 @@
                 }
                 
                 const xml = await sitemapResponse.text();
-                const doc = new DOMParser().parseFromString(xml, 'application/xml');
-                
-                const rawUrls = Array.from(doc.getElementsByTagName('loc'))
-                    .map(loc => normalizeUrl(loc.textContent))
-                    .filter(url => url);
-                
+                const rawUrls = extractSitemapUrlsFast(xml);
+
                 console.log(`📋 Found ${rawUrls.length} URLs in sitemap`);
                 
                 // Smart prioritization
@@ -1297,6 +1293,18 @@
             if (path.includes('/doc') || path.includes('/guide')) return 'docs';
             return 'pages';
         }
+    }
+
+    // Fast sitemap URL extraction using regex instead of DOM parsing
+    function extractSitemapUrlsFast(xml) {
+        const urls = [];
+        const locRegex = /<loc>(.*?)<\/loc>/gi;
+        let match;
+        while ((match = locRegex.exec(xml)) !== null) {
+            const url = normalizeUrl(match[1]);
+            if (url) urls.push(url);
+        }
+        return urls;
     }
 
     function extractImagesOptimized(html, pageUrl) {
