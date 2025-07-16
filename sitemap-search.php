@@ -848,11 +848,12 @@
     
     // Configuration constants
     const maxRecentSearches = 10;
-    const maxCacheSize = 100;
-    const maxConcurrentRequests = 50;
-    const requestDelay = 5;
-    const chunkSize = 100;
-    const criticalPageLimit = 50;
+    const maxCacheSize = 200;
+    // Tweaked for ~1100 page sitemap
+    const maxConcurrentRequests = 80;
+    const requestDelay = 2;
+    const chunkSize = 150;
+    const criticalPageLimit = 100;
     
     // Performance optimization constants
     const commonWords = new Set(['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'way', 'who', 'with', 'from', 'they', 'been', 'have', 'will', 'would', 'could', 'should', 'their', 'there', 'where', 'when', 'what', 'this', 'that']);
