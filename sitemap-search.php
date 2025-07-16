@@ -887,7 +887,14 @@ function loadCachedSearchData() {
             pageDataCache.set(url, page);
             const terms = Array.from(page.searchTerms || []);
             const titleWords = page.title.toLowerCase().match(wordBoundaryRegex) || [];
-            [...terms, ...titleWords.filter(w => w.length > 2)].forEach(term => {
+            let urlWords = [];
+            try {
+                const pathname = new URL(page.url, location.origin).pathname;
+                urlWords = pathname.toLowerCase().match(wordBoundaryRegex) || [];
+            } catch (e) {
+                urlWords = page.url.toLowerCase().match(wordBoundaryRegex) || [];
+            }
+            [...terms, ...titleWords.filter(w => w.length > 2), ...urlWords.filter(w => w.length > 2)].forEach(term => {
                 if (!searchIndex.has(term)) searchIndex.set(term, []);
                 searchIndex.get(term).push(page);
             });
@@ -1316,8 +1323,15 @@ function saveCachedSearchData() {
             // Batch index updates for better performance
             const terms = Array.from(page.searchTerms);
             const titleWords = page.title.toLowerCase().match(wordBoundaryRegex) || [];
-            
-            [...terms, ...titleWords.filter(w => w.length > 2)].forEach(term => {
+            let urlWords = [];
+            try {
+                const pathname = new URL(page.url, location.origin).pathname;
+                urlWords = pathname.toLowerCase().match(wordBoundaryRegex) || [];
+            } catch (e) {
+                urlWords = page.url.toLowerCase().match(wordBoundaryRegex) || [];
+            }
+
+            [...terms, ...titleWords.filter(w => w.length > 2), ...urlWords.filter(w => w.length > 2)].forEach(term => {
                 if (!searchIndex.has(term)) {
                     searchIndex.set(term, []);
                 }
@@ -1826,20 +1840,23 @@ function saveCachedSearchData() {
         // Search pages using pre-built index
         terms.forEach(term => {
             if (searchIndex.has(term)) {
+                const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
                 searchIndex.get(term).forEach(page => {
                     if (!pageMatches.has(page.url)) {
                         pageMatches.set(page.url, { page, score: 0, exactMatches: 0, fuzzyMatches: 0 });
                     }
                     const match = pageMatches.get(page.url);
-                    
+
                     const titleLower = page.title.toLowerCase();
                     const textLower = page.text.toLowerCase();
-                    
-                    const titleMatches = (titleLower.match(new RegExp(term, 'g')) || []).length;
-                    const textMatches = (textLower.match(new RegExp(term, 'g')) || []).length;
-                    
-                    match.score += titleMatches * 10 + textMatches;
-                    match.exactMatches += titleMatches + textMatches;
+                    const urlLower = page.url.toLowerCase();
+
+                    const titleMatches = (titleLower.match(regex) || []).length;
+                    const textMatches = (textLower.match(regex) || []).length;
+                    const urlMatches = (urlLower.match(regex) || []).length;
+
+                    match.score += urlMatches * 15 + titleMatches * 10 + textMatches;
+                    match.exactMatches += urlMatches + titleMatches + textMatches;
                 });
             }
             
