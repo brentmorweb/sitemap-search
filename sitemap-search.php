@@ -33,7 +33,6 @@
                     <button class="filter-button" data-filter="pages">Pages</button>
                     <button class="filter-button" data-filter="images">Images</button>
                     <button class="filter-button" data-filter="blog">Blog</button>
-                    <button class="filter-button" data-filter="docs">Docs</button>
                 </div>
             </div>
         </div>
@@ -884,6 +883,7 @@ function loadCachedSearchData() {
         if (!data) return false;
         const pages = JSON.parse(data);
         pages.forEach(([url, page]) => {
+            if (page.category === 'docs') return;
             pageDataCache.set(url, page);
             const terms = Array.from(page.searchTerms || []);
             const titleWords = page.title.toLowerCase().match(wordBoundaryRegex) || [];
@@ -1102,6 +1102,9 @@ function saveCachedSearchData() {
                 if (textCache.has(htmlHash)) {
                     const cachedData = textCache.get(htmlHash);
                     const page = { ...cachedData, url };
+                    if (page.category === 'docs') {
+                        continue;
+                    }
                     processedPages.push(page);
                     pageDataCache.set(url, page);
                     this.indexPageFast(page);
@@ -1142,7 +1145,9 @@ function saveCachedSearchData() {
                     type: 'page',
                     processedAt: Date.now()
                 };
-                
+
+                if (page.category === 'docs') continue;
+
                 // Cache processed text
                 const textData = { title, text, searchTerms, category: page.category };
                 textCache.set(htmlHash, textData);
@@ -1930,8 +1935,8 @@ function saveCachedSearchData() {
                 });
             }
         });
-        
-        lastResults = results;
+
+        lastResults = results.filter(r => r.category !== 'docs');
         lastQuery = cacheKey;
         
         // Cache the results
