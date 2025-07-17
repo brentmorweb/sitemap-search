@@ -860,79 +860,9 @@
     const titleRegex = /<title>([\s\S]*?)<\/title>/i;
     const wordBoundaryRegex = /\b\w+\b/g;
 
-// ========================================================================
-// LOCAL STORAGE CACHE FUNCTIONS
-// ========================================================================
-
-const CACHE_KEY = 'ss_page_cache';
-const CACHE_COOKIE = 'ss_cache';
-
-function getCookie(name) {
-    const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\/+^])/g, '\$1') + '=([^;]*)'));
-    return match ? decodeURIComponent(match[1]) : null;
-}
-
-function checkCacheExpiration() {
-    if (!getCookie(CACHE_COOKIE)) {
-        localStorage.removeItem(CACHE_KEY);
-    }
-}
-
-function loadCachedSearchData() {
-    try {
-        const data = localStorage.getItem(CACHE_KEY);
-        if (!data) return false;
-        const pages = JSON.parse(data);
-        pages.forEach(([url, page]) => {
-            pageDataCache.set(url, page);
-            const terms = Array.from(page.searchTerms || []);
-            const titleWords = page.title.toLowerCase().match(wordBoundaryRegex) || [];
-            let urlWords = [];
-            try {
-                const pathname = new URL(page.url, location.origin).pathname;
-                urlWords = pathname.toLowerCase().match(wordBoundaryRegex) || [];
-            } catch (e) {
-                urlWords = page.url.toLowerCase().match(wordBoundaryRegex) || [];
-            }
-            [...terms, ...titleWords.filter(w => w.length > 2), ...urlWords.filter(w => w.length > 2)].forEach(term => {
-                if (!searchIndex.has(term)) searchIndex.set(term, []);
-                searchIndex.get(term).push(page);
-            });
-        });
-        buildAutocompleteIndex();
-        dataLoaded = true;
-        criticalDataLoaded = true;
-        input.setAttribute('placeholder', 'Search ready!');
-        input.disabled = false;
-        resultsEl.innerHTML = `
-            <div class="search-hint">
-                <i class="fas fa-search"></i>
-                <div>Search ready! Start typing to search through pages and images</div>
-                <div style="margin-top: 8px; font-size: 0.8rem; opacity: 0.7;">Press <kbd>/</kbd> to quickly open search • <kbd>Esc</kbd> to close</div>
-            </div>
-        `;
-        preloadStatus.classList.remove('active');
-        console.log('✅ Search data loaded from localStorage');
-        return true;
-    } catch (e) {
-        console.error('Failed to load cached search data', e);
-        return false;
-    }
-}
-
-function saveCachedSearchData() {
-    try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(Array.from(pageDataCache.entries())));
-        const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
-        document.cookie = `${CACHE_COOKIE}=1; expires=${expires}; path=/`;
-    } catch (e) {
-        console.error('Failed to save search cache', e);
-    }
-}
     // ============================================================================
     // LARGE SITE OPTIMIZATION CLASS
     // ============================================================================
-    
     class LargeSitePageCache {
         constructor() {
             this.loadStartTime = 0;
@@ -1042,23 +972,13 @@ function saveCachedSearchData() {
             
             for (let attempt = 0; attempt <= retries; attempt++) {
                 try {
-                    // Try cache first
-                    if ('caches' in window) {
-                        const cache = await caches.open('large-site-cache-v2');
-                        const cachedResponse = await cache.match(url);
-                        
-                        if (cachedResponse) {
-                            const html = await cachedResponse.text();
-                            return { url, html, fromCache: true };
-                        }
-                    }
                     
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), timeout);
                     
                     const response = await fetch(url, {
                         signal: controller.signal,
-                        cache: 'force-cache',
+                        cache: 'no-store',
                         priority: 'high',
                         keepalive: true,
                         mode: 'cors'
@@ -1072,15 +992,8 @@ function saveCachedSearchData() {
                     
                     const html = await response.text();
                     
-                    // Background cache storage
-                    if ('caches' in window) {
-                        const cache = await caches.open('large-site-cache-v2');
-                        cache.put(url, new Response(html, {
-                            headers: { 'Content-Type': 'text/html', 'Cache-Control': 'max-age=86400' }
-                        })).catch(() => {}); // Ignore cache errors
-                    }
                     
-                    return { url, html, fromCache: false };
+                    return { url, html };
                     
                 } catch (error) {
                     lastError = error;
@@ -1167,7 +1080,6 @@ function saveCachedSearchData() {
 
         // Chunked loading with immediate search availability
         async loadAndCacheAllDataUltraFast() {
-            saveCachedSearchData();
             console.log('🚀 Starting ultra-fast loading for large site...');
             this.loadStartTime = Date.now();
             
@@ -1178,7 +1090,7 @@ function saveCachedSearchData() {
                 
                 const sitemapResponse = await fetch('/sitemap01.xml', { 
                     signal: controller.signal,
-                    cache: 'force-cache'
+                    cache: 'no-store'
                 });
                 
                 if (!sitemapResponse.ok) {
@@ -1245,15 +1157,9 @@ function saveCachedSearchData() {
                     }
                 }
                 
-                // Phase 3: Background image processing and final indexing
-                console.log('🖼️  Phase 3: Processing images and building autocomplete...');
-                
-                // Process images in background
-                requestIdleCallback(() => {
-                    this.processAllImagesBackground();
-                });
-                
-                // Build autocomplete index
+                // Phase 3: Final indexing and autocomplete
+                console.log("🖼️  Phase 3: Building autocomplete...");
+
                 buildAutocompleteIndex();
                 
                 const totalTime = Date.now() - this.loadStartTime;
@@ -1270,32 +1176,6 @@ function saveCachedSearchData() {
         }
 
         // Background image processing for large sites
-        async processAllImagesBackground() {
-            console.log('🖼️  Background image processing started...');
-            let imageCount = 0;
-            
-            for (const [url, page] of pageDataCache) {
-                // Use cached HTML if available
-                const cachedResponse = await caches.open('large-site-cache-v2').then(cache => 
-                    cache.match(url)
-                ).catch(() => null);
-                
-                if (cachedResponse) {
-                    const html = await cachedResponse.text();
-                    const images = extractImagesOptimized(html, url);
-                    imageCount += images.length;
-                    
-                    images.forEach(image => indexImage(image));
-                }
-                
-                // Process in small batches to avoid blocking
-                if (imageCount % 50 === 0) {
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
-            }
-            
-            console.log(`🖼️  Processed ${imageCount} images in background`);
-        }
 
         // Optimized helper functions
         simpleHash(str) {
@@ -1820,7 +1700,7 @@ function saveCachedSearchData() {
         const isFromCache = searchCache.has(cacheKey);
         
         if (isFromCache) {
-            console.log(`⚡ Using cached results for: "${query}"`);
+            console.log(`⚡ Results retrieved from memory for: "${query}"`);
             lastResults = searchCache.get(cacheKey);
             lastQuery = cacheKey;
             statsEl.style.display = 'flex';
@@ -1960,7 +1840,7 @@ function saveCachedSearchData() {
         searchCache.set(cacheKey, results);
         
         const searchTime = Date.now() - startTime;
-        console.log(`⚡ Search completed in ${searchTime}ms - found ${results.length} results (cached for next time)`);
+        console.log(`⚡ Search completed in ${searchTime}ms - found ${results.length} results`);
         
         statsEl.style.display = 'flex';
         processResults();
@@ -2007,20 +1887,16 @@ function saveCachedSearchData() {
         const fuzzyCount = filteredResults.filter(r => r.isFuzzy).length;
         
         let countText = '';
-        const cacheIndicator = searchCache.has(lastQuery) && input.value.toLowerCase().trim() === lastQuery ? ' ⚡' : '';
         
         if (currentFilter === 'all') {
-            countText = `${total} results found (${pageCount} pages, ${imageCount} images)${cacheIndicator}`;
             if (fuzzyCount > 0) {
                 countText += ` • ${fuzzyCount} fuzzy matches`;
             }
         } else if (currentFilter === 'images') {
-            countText = `${imageCount} images found${cacheIndicator}`;
             if (fuzzyCount > 0) {
                 countText += ` • ${fuzzyCount} fuzzy matches`;
             }
         } else {
-            countText = `${pageCount} pages found${cacheIndicator}`;
             if (fuzzyCount > 0) {
                 countText += ` • ${fuzzyCount} fuzzy matches`;
             }
@@ -2209,7 +2085,6 @@ function saveCachedSearchData() {
             
             // Start the ultra-fast loading
             await cache.loadAndCacheAllDataUltraFast();
-            saveCachedSearchData();
             
             // Final update
             if (input) {
@@ -2230,13 +2105,8 @@ function saveCachedSearchData() {
     // EVENT HANDLERS
 function init() {
     console.log('🚀 Ultra-optimized search initializing...');
-    checkCacheExpiration();
     loadRecentSearches();
 
-    if (loadCachedSearchData()) {
-        console.log(`🎉 Search ready with ${pageDataCache.size} pages (cached)!`);
-        return;
-    }
 
     preloadStatus.classList.add('active');
     input.setAttribute('placeholder', 'Loading search data...');
@@ -2244,7 +2114,6 @@ function init() {
 
     initializeLargeSiteSearch()
         .then(() => {
-            saveCachedSearchData();
             console.log(`🎉 Search ready with ${pageDataCache.size} pages!`);
         })
         .catch(error => {
@@ -2301,15 +2170,9 @@ function init() {
 
         clearTimeout(searchTimer);
         searchTimer = setTimeout(() => {
-            // Show different loading message for cached vs new searches
-            const cacheKey = query.toLowerCase().trim();
-            if (searchCache.has(cacheKey)) {
-                resultsEl.innerHTML = '<div class="search-loading"><i class="fas fa-bolt"></i>Getting cached results...</div>';
-            } else {
-                resultsEl.innerHTML = '<div class="search-loading"><i class="fas fa-spinner"></i>Searching...</div>';
-            }
-            pagingEl.innerHTML = '';
-            statsEl.style.display = 'none';
+            resultsEl.innerHTML = '<div class="search-loading"><i class="fas fa-spinner"></i>Searching...</div>';
+            pagingEl.innerHTML = "";
+            statsEl.style.display = "none";
             performSearch(query);
         }, 300);
     });
