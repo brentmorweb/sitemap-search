@@ -31,7 +31,6 @@
                 <div class="search-filters" id="search-filters">
                     <button class="filter-button active" data-filter="all">All</button>
                     <button class="filter-button" data-filter="pages">Pages</button>
-                    <button class="filter-button" data-filter="images">Images</button>
                     <button class="filter-button" data-filter="blog">Blog</button>
                     <button class="filter-button" data-filter="docs">Docs</button>
                 </div>
@@ -64,14 +63,6 @@
     </div>
 </div>
 
-<!-- Image Modal -->
-<div class="image-modal" id="image-modal">
-    <div class="modal-content">
-        <button class="modal-close" id="modal-close"><i class="fas fa-times"></i></button>
-        <img class="modal-image" id="modal-image">
-        <div class="modal-info" id="modal-info"></div>
-    </div>
-</div>
 
 <style>
 /* Search Icon Button */
@@ -472,147 +463,6 @@
     line-height: 1.5;
 }
 
-/* Image Results */
-.image-results-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 16px;
-    margin-bottom: 16px;
-}
-
-.image-item {
-    border: 1px solid #e1e5e9;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #fff;
-    transition: box-shadow 0.2s, transform 0.2s;
-    cursor: pointer;
-}
-
-.image-item:hover {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
-}
-
-.image-thumbnail {
-    width: 100%;
-    height: 140px;
-    object-fit: cover;
-    background: #f8f9fa;
-    display: block;
-}
-
-.image-thumbnail.loading {
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0f0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: loading 1.5s infinite;
-}
-
-.image-thumbnail.error {
-    background: #f8f9fa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #666;
-    font-size: 0.8rem;
-    flex-direction: column;
-    gap: 8px;
-}
-
-@keyframes loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
-
-.image-info {
-    padding: 12px;
-}
-
-.image-title {
-    font-size: 0.9rem;
-    font-weight: 500;
-    margin: 0 0 4px;
-    line-height: 1.3;
-    color: #24292f;
-}
-
-.image-details {
-    font-size: 0.75rem;
-    color: #656d76;
-    line-height: 1.4;
-}
-
-.search-results mark {
-    background: #fff3cd;
-    padding: 1px 2px;
-    border-radius: 2px;
-    font-weight: 500;
-}
-
-.result-score {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    background: #f1f3f4;
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    color: #666;
-}
-
-/* Image Modal */
-.image-modal {
-    display: none;
-    position: fixed;
-    z-index: 2000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.9);
-    backdrop-filter: blur(5px);
-}
-
-.image-modal.show {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.modal-content {
-    max-width: 90vw;
-    max-height: 90vh;
-    position: relative;
-}
-
-.modal-image {
-    max-width: 100%;
-    max-height: 90vh;
-    object-fit: contain;
-    border-radius: 8px;
-}
-
-.modal-close {
-    position: absolute;
-    top: -40px;
-    right: 0;
-    color: white;
-    font-size: 2rem;
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 8px;
-}
-
-.modal-info {
-    position: absolute;
-    bottom: -60px;
-    left: 0;
-    right: 0;
-    color: white;
-    text-align: center;
-    font-size: 0.9rem;
-}
 
 .pagination {
     display: flex;
@@ -784,14 +634,6 @@
         gap: 12px;
     }
     
-    .image-results-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 12px;
-    }
-
-    .image-thumbnail {
-        height: 120px;
-    }
 }
 </style>
 
@@ -815,10 +657,6 @@
     const pagingEl = document.getElementById('site-search-pagination');
     const filtersEl = document.getElementById('search-filters');
     const sortSelect = document.getElementById('sort-select');
-    const imageModal = document.getElementById('image-modal');
-    const modalImage = document.getElementById('modal-image');
-    const modalInfo = document.getElementById('modal-info');
-    const modalClose = document.getElementById('modal-close');
     const preloadStatus = document.getElementById('preload-status');
     const suggestionsDropdown = document.getElementById('suggestions-dropdown');
     
@@ -826,7 +664,6 @@
     const pageSize = 12;
     let pageDataCache = new Map();
     let searchIndex = new Map();
-    let imageIndex = new Map();
     let lastResults = [];
     let filteredResults = [];
     let currentPage = 1;
@@ -900,7 +737,7 @@ function loadCachedSearchData() {
         resultsEl.innerHTML = `
             <div class="search-hint">
                 <i class="fas fa-search"></i>
-                <div>Search ready! Start typing to search through pages and images</div>
+                <div>Search ready! Start typing to search through pages</div>
                 <div style="margin-top: 8px; font-size: 0.8rem; opacity: 0.7;">Press <kbd>/</kbd> to quickly open search • <kbd>Esc</kbd> to close</div>
             </div>
         `;
@@ -1238,13 +1075,6 @@ function saveCachedSearchData() {
                     }
                 }
                 
-                // Phase 3: Background image processing and final indexing
-                console.log('🖼️  Phase 3: Processing images and building autocomplete...');
-                
-                // Process images in background
-                requestIdleCallback(() => {
-                    this.processAllImagesBackground();
-                });
                 
                 // Build autocomplete index
                 buildAutocompleteIndex();
@@ -1262,33 +1092,6 @@ function saveCachedSearchData() {
             }
         }
 
-        // Background image processing for large sites
-        async processAllImagesBackground() {
-            console.log('🖼️  Background image processing started...');
-            let imageCount = 0;
-            
-            for (const [url, page] of pageDataCache) {
-                // Use cached HTML if available
-                const cachedResponse = await caches.open('large-site-cache-v2').then(cache => 
-                    cache.match(url)
-                ).catch(() => null);
-                
-                if (cachedResponse) {
-                    const html = await cachedResponse.text();
-                    const images = extractImagesOptimized(html, url);
-                    imageCount += images.length;
-                    
-                    images.forEach(image => indexImage(image));
-                }
-                
-                // Process in small batches to avoid blocking
-                if (imageCount % 50 === 0) {
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
-            }
-            
-            console.log(`🖼️  Processed ${imageCount} images in background`);
-        }
 
         // Optimized helper functions
         simpleHash(str) {
@@ -1371,82 +1174,6 @@ function saveCachedSearchData() {
         return urls;
     }
 
-    function extractImagesOptimized(html, pageUrl) {
-        const imgRegex = /<img[^>]+src\s*=\s*['"']([^'"']+)['"'][^>]*>/gi;
-        const images = [];
-        let match;
-        
-        while ((match = imgRegex.exec(html)) !== null && images.length < 20) { // Limit per page
-            const src = match[1];
-            const fullUrl = normalizeUrl(src);
-            
-            if (fullUrl && isValidImageUrl(fullUrl)) {
-                const imgTag = match[0];
-                const filename = extractFilename(fullUrl);
-                
-                if (filename && !isTinyImage(imgTag)) {
-                    images.push({
-                        url: fullUrl,
-                        alt: extractAttribute(imgTag, 'alt') || '',
-                        title: extractAttribute(imgTag, 'title') || '',
-                        displayName: generateDisplayName(filename),
-                        filename,
-                        pageUrl,
-                        type: 'image',
-                        category: 'images'
-                    });
-                }
-            }
-        }
-        
-        return images;
-    }
-
-    function isValidImageUrl(url) {
-        return /\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(url) && !url.includes('favicon');
-    }
-
-    function extractFilename(url) {
-        try {
-            return new URL(url).pathname.split('/').pop().split('?')[0];
-        } catch (e) {
-            return null;
-        }
-    }
-
-    function isTinyImage(imgTag) {
-        const width = extractAttribute(imgTag, 'width');
-        const height = extractAttribute(imgTag, 'height');
-        return (width && parseInt(width) < 50) || (height && parseInt(height) < 50);
-    }
-
-    function extractAttribute(html, attr) {
-        const match = html.match(new RegExp(`${attr}\\s*=\\s*['"']([^'"']*)['"']`, 'i'));
-        return match ? match[1] : '';
-    }
-
-    function generateDisplayName(filename) {
-        return filename.replace(/\.[^/.]+$/, '')
-            .replace(/[_-]/g, ' ')
-            .replace(/([a-z])([A-Z])/g, '$1 $2')
-            .replace(/\b\w/g, l => l.toUpperCase())
-            .trim() || 'Untitled Image';
-    }
-
-    function indexImage(image) {
-        const searchableText = [image.alt, image.title, image.displayName, image.filename]
-            .join(' ').toLowerCase();
-        
-        const words = searchableText.match(wordBoundaryRegex) || [];
-        words.forEach(word => {
-            if (word.length > 2) {
-                if (!imageIndex.has(word)) {
-                    imageIndex.set(word, []);
-                }
-                imageIndex.get(word).push(image);
-            }
-        });
-    }
 
     function buildAutocompleteIndex() {
         const suggestionSet = new Set();
@@ -1513,7 +1240,7 @@ function saveCachedSearchData() {
             resultsEl.innerHTML = `
                 <div class="search-hint">
                     <i class="fas fa-search"></i>
-                    <div>Start typing to search through pages and images</div>
+                    <div>Start typing to search through pages</div>
                     <div style="margin-top: 8px; font-size: 0.8rem; opacity: 0.7;">Press <kbd>/</kbd> to quickly open search • <kbd>Esc</kbd> to close</div>
                 </div>
             `;
@@ -1821,7 +1548,6 @@ function saveCachedSearchData() {
         
         const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 1);
         const pageMatches = new Map();
-        const imageMatches = new Map();
         
         // Search pages using pre-built index
         terms.forEach(term => {
@@ -1861,36 +1587,6 @@ function saveCachedSearchData() {
             }
         });
         
-        // Search images using pre-built index
-        terms.forEach(term => {
-            if (imageIndex.has(term)) {
-                imageIndex.get(term).forEach(image => {
-                    if (!imageMatches.has(image.url)) {
-                        imageMatches.set(image.url, { image, score: 0, exactMatches: 0, fuzzyMatches: 0 });
-                    }
-                    const match = imageMatches.get(image.url);
-                    match.score += 5;
-                    match.exactMatches++;
-                });
-            }
-            
-            // Image fuzzy search
-            if (term.length > 3) {
-                imageIndex.forEach((images, indexTerm) => {
-                    const fuzzyResult = fuzzyMatch(term, indexTerm);
-                    if (fuzzyResult && fuzzyResult.score > 50) {
-                        images.forEach(image => {
-                            if (!imageMatches.has(image.url)) {
-                                imageMatches.set(image.url, { image, score: 0, exactMatches: 0, fuzzyMatches: 0 });
-                            }
-                            const match = imageMatches.get(image.url);
-                            match.score += fuzzyResult.score * 0.2;
-                            match.fuzzyMatches++;
-                        });
-                    }
-                });
-            }
-        });
         
         // Convert to results array
         const results = [];
@@ -1921,15 +1617,6 @@ function saveCachedSearchData() {
             }
         });
         
-        imageMatches.forEach(({ image, score, exactMatches, fuzzyMatches }) => {
-            if (score > 0) {
-                results.push({
-                    ...image,
-                    score,
-                    isFuzzy: fuzzyMatches > exactMatches
-                });
-            }
-        });
         
         lastResults = results;
         lastQuery = cacheKey;
@@ -1951,20 +1638,8 @@ function saveCachedSearchData() {
 
     function processResults() {
         filteredResults = currentFilter === 'all' 
-            ? [...lastResults]
-            : lastResults.filter(r => r.category === currentFilter);
-        
-        filteredResults.sort((a, b) => {
-            switch (currentSort) {
-                case 'title': 
-                    const aTitle = a.title || a.displayName || a.alt || '';
-                    const bTitle = b.title || b.displayName || b.alt || '';
-                    return aTitle.localeCompare(bTitle);
                 case 'url': return a.url.localeCompare(b.url);
-                case 'size': 
-                    if (a.type === 'image' && b.type === 'image') {
-                        return b.filename.length - a.filename.length;
-                    }
+                case 'size':
                     return b.score - a.score;
                 case 'relevance':
                 default: return b.score - a.score;
@@ -1985,28 +1660,12 @@ function saveCachedSearchData() {
         const pageItems = filteredResults.slice(start, start + pageSize);
 
         // Update stats
-        const pageCount = filteredResults.filter(r => r.type === 'page').length;
-        const imageCount = filteredResults.filter(r => r.type === 'image').length;
+        const pageCount = filteredResults.length;
         const fuzzyCount = filteredResults.filter(r => r.isFuzzy).length;
-        
-        let countText = '';
-        const cacheIndicator = searchCache.has(lastQuery) && input.value.toLowerCase().trim() === lastQuery ? ' ⚡' : '';
-        
-        if (currentFilter === 'all') {
-            countText = `${total} results found (${pageCount} pages, ${imageCount} images)${cacheIndicator}`;
-            if (fuzzyCount > 0) {
-                countText += ` • ${fuzzyCount} fuzzy matches`;
-            }
-        } else if (currentFilter === 'images') {
-            countText = `${imageCount} images found${cacheIndicator}`;
-            if (fuzzyCount > 0) {
-                countText += ` • ${fuzzyCount} fuzzy matches`;
-            }
-        } else {
-            countText = `${pageCount} pages found${cacheIndicator}`;
-            if (fuzzyCount > 0) {
-                countText += ` • ${fuzzyCount} fuzzy matches`;
-            }
+
+        let countText = `${pageCount} pages found${cacheIndicator}`;
+        if (fuzzyCount > 0) {
+            countText += ` • ${fuzzyCount} fuzzy matches`;
         }
         countEl.textContent = countText;
         
@@ -2050,39 +1709,6 @@ function saveCachedSearchData() {
                 fragment.appendChild(div);
             });
             
-            // Render images
-            const images = pageItems.filter(r => r.type === 'image');
-            if (images.length > 0) {
-                const gridDiv = document.createElement('div');
-                gridDiv.className = 'image-results-grid';
-                
-                images.forEach((image, index) => {
-                    const div = document.createElement('div');
-                    div.className = 'image-item';
-                    div.dataset.imageIndex = start + pages.length + index;
-                    
-                    const displayTitle = image.displayName || image.alt || image.title || image.filename || 'Untitled Image';
-                    const fuzzyIndicator = image.isFuzzy ? ' <i class="fas fa-spell-check" title="Fuzzy match" style="opacity: 0.6;"></i>' : '';
-                    
-                    div.innerHTML = `
-                        <img class="image-thumbnail" 
-                             src="${image.url}" 
-                             alt="${image.alt || displayTitle}" 
-                             loading="lazy"
-                             onerror="this.classList.add('error'); this.style.display='flex'; this.style.alignItems='center'; this.style.justifyContent='center'; this.innerHTML='<i class=&quot;fas fa-image&quot; style=&quot;font-size: 2rem; color: #666;&quot;></i>';">
-                        <div class="image-info">
-                            <div class="image-title">${displayTitle}${fuzzyIndicator}</div>
-                            <div class="image-details">
-                                <div>From: ${new URL(image.pageUrl).pathname}</div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    gridDiv.appendChild(div);
-                });
-                
-                fragment.appendChild(gridDiv);
-            }
             
             resultsEl.innerHTML = '';
             resultsEl.appendChild(fragment);
@@ -2116,34 +1742,6 @@ function saveCachedSearchData() {
         pagingEl.appendChild(fragment);
     }
 
-    function showImageModal(image) {
-        modalImage.src = image.url;
-        modalImage.alt = image.alt || image.displayName || 'Image';
-        
-        const displayTitle = image.displayName || image.alt || image.title || image.filename || 'Untitled Image';
-        const fuzzyIndicator = image.isFuzzy ? ' (Fuzzy match)' : '';
-        
-        try {
-            const pagePathname = new URL(image.pageUrl).pathname;
-            modalInfo.innerHTML = `
-                <div><strong>${displayTitle}${fuzzyIndicator}</strong></div>
-                <div>From: ${pagePathname}</div>
-                <div>File: ${image.filename}</div>
-            `;
-        } catch (e) {
-            modalInfo.innerHTML = `
-                <div><strong>${displayTitle}${fuzzyIndicator}</strong></div>
-                <div>From: ${image.pageUrl}</div>
-                <div>File: ${image.filename}</div>
-            `;
-        }
-        
-        imageModal.classList.add('show');
-    }
-
-    function hideImageModal() {
-        imageModal.classList.remove('show');
-    }
 
     // ============================================================================
     // INITIALIZATION
@@ -2179,7 +1777,7 @@ function saveCachedSearchData() {
             resultsEl.innerHTML = `
                 <div class="search-hint">
                     <i class="fas fa-search"></i>
-                    <div>Search ready! Start typing to search through pages and images</div>
+                    <div>Search ready! Start typing to search through pages</div>
                     <div style="margin-top: 8px; font-size: 0.8rem; opacity: 0.7;">Press <kbd>/</kbd> to quickly open search • <kbd>Esc</kbd> to close</div>
                 </div>
             `;
@@ -2274,7 +1872,7 @@ function init() {
             resultsEl.innerHTML = `
                 <div class="search-hint">
                     <i class="fas fa-search"></i>
-                    <div>Start typing to search through pages and images</div>
+                    <div>Start typing to search through pages</div>
                     <div style="margin-top: 8px; font-size: 0.8rem; opacity: 0.7;">Press <kbd>/</kbd> to quickly open search • <kbd>Esc</kbd> to close</div>
                 </div>
             `;
@@ -2318,7 +1916,7 @@ function init() {
         resultsEl.innerHTML = `
             <div class="search-hint">
                 <i class="fas fa-search"></i>
-                <div>Start typing to search through pages and images</div>
+                <div>Start typing to search through pages</div>
                 <div style="margin-top: 8px; font-size: 0.8rem; opacity: 0.7;">Press <kbd>/</kbd> to quickly open search • <kbd>Esc</kbd> to close</div>
             </div>
         `;
@@ -2370,23 +1968,6 @@ function init() {
         processResults();
     });
 
-    resultsEl.addEventListener('click', (e) => {
-        const imageItem = e.target.closest('.image-item');
-        if (imageItem) {
-            const index = parseInt(imageItem.dataset.imageIndex);
-            const image = filteredResults[index];
-            if (image && image.type === 'image') {
-                showImageModal(image);
-            }
-        }
-    });
-
-    modalClose.addEventListener('click', hideImageModal);
-    imageModal.addEventListener('click', (e) => {
-        if (e.target === imageModal) {
-            hideImageModal();
-        }
-    });
 
     searchPopup.addEventListener('click', (e) => {
         if (e.target === searchPopup) {
@@ -2398,12 +1979,8 @@ function init() {
         if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
             e.preventDefault();
             openSearchPopup();
-        } else if (e.key === 'Escape') {
-            if (imageModal.classList.contains('show')) {
-                hideImageModal();
-            } else if (isPopupOpen) {
-                closeSearchPopup();
-            }
+        } else if (e.key === 'Escape' && isPopupOpen) {
+            closeSearchPopup();
         }
     });
 
